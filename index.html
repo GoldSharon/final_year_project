@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lightning ML Documentation</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --header-color: #2c3e50;
+            --primary-color: #3498db;
+            --secondary-color: #f1f1f1;
+            --code-bg: #f8f8f8;
+            --code-text: #2c3e50;
+            --border-color: #dddddd;
+            --nav-bg: #fafafa;
+            --nav-hover-bg: #e9e9e9;
+            --nav-active-bg: #e0e0e0;
+            --nav-active-border: #3498db;
+        }
+
+        body.dark-mode {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --header-color: #ecf0f1;
+            --primary-color: #3498db;
+            --secondary-color: #2c2c2c;
+            --code-bg: #282c34;
+            --code-text: #abb2bf;
+            --border-color: #444444;
+            --nav-bg: #252525;
+            --nav-hover-bg: #333333;
+            --nav-active-bg: #3a3a3a;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            display: flex;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* --- Navigation Sidebar --- */
+        .sidebar {
+            width: 280px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            background-color: var(--nav-bg);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        
+        .sidebar h1 {
+            font-size: 1.5rem;
+            margin: 0 0 20px 0;
+            color: var(--header-color);
+        }
+
+        .sidebar nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar nav a {
+            display: block;
+            color: var(--text-color);
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            transition: background-color 0.2s, color 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar nav a:hover {
+            background-color: var(--nav-hover-bg);
+        }
+
+        .sidebar nav a.active {
+            background-color: var(--nav-active-bg);
+            font-weight: 600;
+            border-left-color: var(--nav-active-border);
+        }
+
+        /* --- Main Content --- */
+        main {
+            margin-left: 280px;
+            padding: 20px 40px;
+            width: calc(100% - 280px);
+        }
+
+        section {
+            padding-top: 20px;
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        section:last-of-type {
+            border-bottom: none;
+        }
+
+        h2 {
+            font-size: 2rem;
+            color: var(--header-color);
+            margin-bottom: 20px;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            color: var(--header-color);
+            margin-top: 30px;
+        }
+        
+        code {
+            font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+            background-color: var(--secondary-color);
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        
+        .code-container {
+            position: relative;
+        }
+        
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            font-size: 0.9rem;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+        
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #555;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s, background-color 0.2s;
+        }
+        
+        .code-container:hover .copy-btn {
+            opacity: 1;
+        }
+        
+        .copy-btn:hover {
+            background-color: var(--primary-color);
+        }
+        
+        strong {
+            font-weight: 600;
+        }
+        
+        ul {
+            padding-left: 20px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        hr {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 40px 0;
+        }
+
+        /* --- Theme Switcher --- */
+        .theme-switcher {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--secondary-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <h1>Lightning ML</h1>
+        <nav id="table-of-contents"></nav>
+        <button class="theme-switcher" id="theme-switcher">Toggle Theme</button>
+    </aside>
+
+    <main>
+        <section id="overview">
+            <h2>Overview</h2>
+            <p>Lightning ML is a PyTorch-based machine learning library that provides GPU-accelerated implementations of classical ML algorithms. It offers a scikit-learn-compatible API while leveraging PyTorch for high-performance computation on CUDA, MPS (Apple Silicon), and CPU devices.</p>
+        </section>
+        
+        <section id="features">
+            <h2>Features</h2>
+            <ul>
+                <li><strong>GPU Acceleration</strong>: Automatic device detection and support for CUDA, MPS, and CPU</li>
+                <li><strong>Scikit-learn Compatible API</strong>: Familiar <code>fit()</code>, <code>predict()</code>, <code>score()</code> methods</li>
+                <li><strong>Comprehensive Algorithms</strong>: Regression, classification, clustering, and association rule mining</li>
+                <li><strong>Tree-based Models</strong>: Decision trees, random forests, and bagging ensembles</li>
+                <li><strong>Neural Network Models</strong>: SVM with kernel support, neural regression/classification</li>
+            </ul>
+        </section>
+
+        <section id="installation">
+            <h2>Installation</h2>
+            <div class="code-container">
+                <pre><code class="language-python">import lightning_ml
+from lightning_ml import LinearRegression, RandomForestClassifier, KMeans</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+        </section>
+
+        <section id="module-structure">
+            <h2>Module Structure</h2>
+            <div class="code-container">
+                <pre><code>lightning_ml/
+├── base_model.py          # Base classes for all models
+├── regression.py          # Linear and logistic regression
+├── tree.py                # Decision tree implementations
+├── ensemble.py            # Random forests and bagging
+├── svm.py                 # Support Vector Machines
+├── neighbours.py          # K-Nearest Neighbors
+├── cluster.py             # K-Means, DBSCAN, Hierarchical
+└── market_basket.py       # Association rule mining</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+        </section>
+
+        <section id="base-classes">
+            <h2>Base Classes</h2>
+            <h3>BaseModel</h3>
+            <p>Abstract base class for all ML models providing:</p>
+            <ul>
+                <li>Device management (GPU/CPU auto-detection)</li>
+                <li>Tensor conversion utilities</li>
+                <li>Model persistence (save/load)</li>
+                <li>Training history tracking</li>
+            </ul>
+            <h3>BaseSupervisedModel</h3>
+            <p>Extends <code>BaseModel</code> for supervised learning:</p>
+            <ul>
+                <li>Input validation</li>
+                <li>Feature counting</li>
+                <li>Scoring methods</li>
+            </ul>
+            <h3>BaseUnsupervisedModel</h3>
+            <p>Extends <code>BaseModel</code> for unsupervised learning:</p>
+            <ul>
+                <li><code>fit_predict()</code> method</li>
+                <li>Clustering-specific utilities</li>
+            </ul>
+            <h3>BaseNeuralModel</h3>
+            <p>Extends <code>BaseSupervisedModel</code> for neural network models:</p>
+            <ul>
+                <li>Training loop management</li>
+                <li>Optimizer creation</li>
+                <li>Batch processing</li>
+                <li>Loss tracking</li>
+            </ul>
+            <h3>BaseTreeModel</h3>
+            <p>Extends <code>BaseSupervisedModel</code> for tree-based models:</p>
+            <ul>
+                <li>Tree structure parameters</li>
+                <li>Feature importance calculation</li>
+            </ul>
+        </section>
+
+        <section id="regression-models">
+            <h2>Regression Models</h2>
+            <h3>LinearRegression</h3>
+            <p>Ordinary Least Squares (OLS) linear regression with closed-form solution.</p>
+            <p><strong>Parameters:</strong></p>
+            <ul>
+                <li><code>fit_intercept</code> (bool): Include intercept term (default: True)</li>
+                <li><code>device</code> (torch.device): Computation device (default: auto-detect)</li>
+            </ul>
+            <p><strong>Attributes:</strong></p>
+            <ul>
+                <li><code>coef_</code> (ndarray): Regression coefficients</li>
+                <li><code>intercept_</code> (float): Intercept term</li>
+                <li><code>n_features_in_</code> (int): Number of features</li>
+            </ul>
+            <p><strong>Methods:</strong></p>
+            <div class="code-container">
+                <pre><code class="language-python">model = LinearRegression()
+model.fit(X_train, y_train)
+predictions = model.predict(X_test)
+score = model.score(X_test, y_test)  # R² score
+residuals = model.get_residuals(X_test, y_test)</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+            <p><strong>Example:</strong></p>
+            <div class="code-container">
+                <pre><code class="language-python">from lightning_ml import LinearRegression
+import numpy as np
+
+X = np.array([[1], [2], [3], [4]])
+y = np.array([2, 4, 6, 8])
+
+model = LinearRegression()
+model.fit(X, y)
+print(f"Coefficient: {model.coef_[0]:.2f}")
+print(f"Intercept: {model.intercept_:.2f}")
+print(f"R² Score: {model.score(X, y):.4f}")</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+        </section>
+
+        <section id="tree-models">
+            <h2>Tree Models</h2>
+            <h3>DecisionTreeClassifier</h3>
+            <p>Decision tree classifier with GPU-accelerated splits.</p>
+            <p><strong>Parameters:</strong></p>
+            <ul>
+                <li><code>max_depth</code> (int): Maximum tree depth (default: None)</li>
+                <li><code>min_samples_split</code> (int): Minimum samples to split (default: 2)</li>
+                <li><code>min_samples_leaf</code> (int): Minimum samples in leaf (default: 1)</li>
+                <li><code>max_features</code> (str/int): Features per split ('sqrt', 'log2', int, None)</li>
+                <li><code>criterion</code> (str): Split criterion ('gini' or 'entropy')</li>
+                <li><code>random_state</code> (int): Random seed</li>
+                <li><code>device</code> (torch.device): Computation device</li>
+            </ul>
+            <p><strong>Example:</strong></p>
+            <div class="code-container">
+                <pre><code class="language-python">from lightning_ml.tree import DecisionTreeClassifier
+from sklearn.datasets import make_classification
+
+X, y = make_classification(n_samples=1000, n_features=20)
+
+tree = DecisionTreeClassifier(
+    max_depth=10,
+    min_samples_split=5,
+    criterion='gini'
+)
+tree.fit(X, y, verbose=True)
+print(f"Tree depth: {tree.get_depth()}")
+print(f"Number of leaves: {tree.get_n_leaves()}")
+print(f"Accuracy: {tree.score(X, y):.4f}")</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+            <h3>DecisionTreeRegressor</h3>
+            <p>Decision tree regressor with MSE/MAE criteria.</p>
+            <p><strong>Example:</strong></p>
+            <div class="code-container">
+                <pre><code class="language-python">from lightning_ml.tree import DecisionTreeRegressor
+
+tree = DecisionTreeRegressor(max_depth=5, criterion='mse')
+tree.fit(X_train, y_train)
+r2_score = tree.score(X_test, y_test)</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+        </section>
+        
+        <section id="ensemble-models">
+            <h2>Ensemble Models</h2>
+            <h3>RandomForestClassifier</h3>
+            <p>Ensemble of decision trees with bootstrap aggregating.</p>
+            <p><strong>Parameters:</strong></p>
+            <ul>
+                <li><code>n_estimators</code> (int): Number of trees (default: 100)</li>
+                <li><code>max_depth</code> (int): Maximum tree depth</li>
+                <li><code>min_samples_split</code> (int): Minimum samples to split (default: 2)</li>
+                <li><code>min_samples_leaf</code> (int): Minimum samples in leaf (default: 1)</li>
+                <li><code>max_features</code> (str/int): Features per tree ('sqrt', 'log2', int, None)</li>
+                <li><code>n_jobs</code> (int): Parallel jobs (-1 = all cores, default: -1)</li>
+            </ul>
+            <p><strong>Example:</strong></p>
+            <div class="code-container">
+                <pre><code class="language-python">from lightning_ml.ensemble import RandomForestClassifier
+
+rf = RandomForestClassifier(
+    n_estimators=100,
+    max_depth=10,
+    max_features='sqrt',
+    n_jobs=-1,
+    random_state=42
+)
+rf.fit(X_train, y_train, verbose=True)
+print(f"Feature importances: {rf.feature_importances_}")
+print(f"Accuracy: {rf.score(X_test, y_test):.4f}")</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+            <h3>BaggingClassifier / BaggingRegressor</h3>
+            <p>Bootstrap aggregating with custom base estimators.</p>
+            <p><strong>Example:</strong></p>
+            <div class="code-container">
+                <pre><code class="language-python">from lightning_ml.ensemble import BaggingClassifier
+from lightning_ml.tree import DecisionTreeClassifier
+
+base_tree = DecisionTreeClassifier(max_depth=5)
+bagging = BaggingClassifier(
+    base_estimator=base_tree,
+    n_estimators=50,
+    max_samples=0.8,
+    random_state=42
+)
+bagging.fit(X_train, y_train)</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+        </section>
+
+        <section id="support-vector-machines">
+            <h2>Support Vector Machines</h2>
+            <h3>SVMClassifier</h3>
+            <p>SVM with multiple kernel support using neural network approximation.</p>
+            <p><strong>Parameters:</strong></p>
+            <ul>
+                <li><code>C</code> (float): Regularization parameter (default: 1.0)</li>
+                <li><code>kernel</code> (str): Kernel type ('linear', 'rbf', 'poly', 'sigmoid')</li>
+                <li><code>gamma</code> (str/float): Kernel coefficient ('scale', 'auto', or float)</li>
+                <li><code>degree</code> (int): Degree for polynomial kernel (default: 3)</li>
+                <li><code>epochs</code> (int): Training epochs (default: 200)</li>
+                <li><code>lr</code> (float): Learning rate (default: 0.001)</li>
+            </ul>
+            <p><strong>Example:</strong></p>
+            <div class="code-container">
+                <pre><code class="language-python">from lightning_ml.svm import SVMClassifier
+
+svm = SVMClassifier(
+    C=1.0,
+    kernel='rbf',
+    gamma='scale',
+    epochs=200
+)
+svm.fit(X_train, y_train, verbose=True)
+predictions = svm.predict(X_test)</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+        </section>
+
+        <section id="k-nearest-neighbors">
+            <h2>K-Nearest Neighbors</h2>
+            <h3>KNNClassifier</h3>
+            <p>K-Nearest Neighbors classifier with GPU-accelerated distance computation.</p>
+             <p><strong>Parameters:</strong></p>
+            <ul>
+                <li><code>n_neighbors</code> (int): Number of neighbors (default: 5)</li>
+                <li><code>weights</code> (str): Weight function ('uniform' or 'distance')</li>
+                <li><code>metric</code> (str): Distance metric ('euclidean', 'manhattan', 'cosine')</li>
+            </ul>
+            <p><strong>Example:</strong></p>
+            <div class="code-container">
+                <pre><code class="language-python">from lightning_ml.neighbours import KNNClassifier
+
+knn = KNNClassifier(
+    n_neighbors=5,
+    weights='distance',
+    metric='euclidean'
+)
+knn.fit(X_train, y_train)
+predictions = knn.predict(X_test)
+probabilities = knn.predict_proba(X_test)</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+        </section>
+
+        <section id="clustering">
+            <h2>Clustering</h2>
+            <h3>KMeans</h3>
+            <p>K-Means clustering with k-means++ initialization.</p>
+             <p><strong>Parameters:</strong></p>
+            <ul>
+                <li><code>n_clusters</code> (int): Number of clusters (default: 8)</li>
+                <li><code>max_iter</code> (int): Maximum iterations (default: 300)</li>
+                <li><code>n_init</code> (int): Number of initializations (default: 10)</li>
+            </ul>
+            <p><strong>Example:</strong></p>
+            <div class="code-container">
+                <pre><code class="language-python">from lightning_ml.cluster import KMeans
+
+kmeans = KMeans(n_clusters=3, n_init=10)
+kmeans.fit(X, verbose=True)
+labels = kmeans.labels_
+centroids = kmeans.cluster_centers_
+
+# Predict clusters for new data
+new_labels = kmeans.predict(X_new)</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+            <h3>DBSCAN</h3>
+            <p>Density-based clustering for arbitrary-shaped clusters.</p>
+            <h3>AgglomerativeClustering</h3>
+            <p>Hierarchical clustering with multiple linkage methods.</p>
+        </section>
+
+        <section id="association-rule-mining">
+            <h2>Association Rule Mining</h2>
+            <h3>Apriori</h3>
+            <p>Apriori algorithm for finding frequent itemsets and association rules.</p>
+            <p><strong>Parameters:</strong></p>
+            <ul>
+                <li><code>min_support</code> (float): Minimum support threshold (0.0 to 1.0)</li>
+                <li><code>min_confidence</code> (float): Minimum confidence for rules (0.0 to 1.0)</li>
+            </ul>
+            <p><strong>Example:</strong></p>
+            <div class="code-container">
+                <pre><code class="language-python">from lightning_ml.market_basket import Apriori
+import pandas as pd
+
+data = pd.DataFrame({
+    'milk': [1, 1, 0, 1],
+    'bread': [1, 1, 1, 0],
+    'butter': [1, 0, 1, 1],
+    'beer': [0, 1, 1, 0]
+})
+
+apriori = Apriori(
+    min_support=0.5,
+    min_confidence=0.7
+)
+apriori.fit(data, verbose=True)
+
+print(apriori.get_rules(top_n=5))</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+        </section>
+
+        <section id="device-management">
+            <h2>Device Management</h2>
+            <p>All models support automatic device detection. The priority is: 1. CUDA, 2. MPS, 3. CPU.</p>
+            <div class="code-container">
+                <pre><code class="language-python">import torch
+
+# Automatic detection
+model = LinearRegression()  # Auto-detects best device
+
+# Manual device specification
+model = LinearRegression(device=torch.device('cuda'))
+model = LinearRegression(device=torch.device('cpu'))
+model = LinearRegression(device=torch.device('mps'))  # Apple Silicon
+
+# Move model to different device
+model.to('cuda')</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+        </section>
+
+        <section id="model-persistence">
+            <h2>Model Persistence</h2>
+            <p>Save and load models using simple methods.</p>
+            <div class="code-container">
+                <pre><code class="language-python"># Save model
+model.save_model('model.pth')
+
+# Load model
+loaded_model = LinearRegression()
+loaded_model.load_model('model.pth')</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+        </section>
+
+        <section id="common-patterns">
+            <h2>Common Patterns</h2>
+            <h3>Cross-Validation</h3>
+            <p>Lightning ML models are compatible with scikit-learn utilities.</p>
+            <div class="code-container">
+                <pre><code class="language-python">from sklearn.model_selection import cross_val_score
+
+model = DecisionTreeClassifier(max_depth=10)
+scores = cross_val_score(model, X, y, cv=5)
+print(f"CV Scores: {scores}")
+print(f"Mean: {scores.mean():.4f} (+/- {scores.std():.4f})")</code></pre>
+                <button class="copy-btn">Copy</button>
+            </div>
+        </section>
+
+        <section id="performance-tips">
+            <h2>Performance Tips</h2>
+            <ol>
+                <li><strong>Use GPU for large datasets</strong>: Models automatically detect and use GPU when available.</li>
+                <li><strong>Batch size</strong>: Adjust <code>batch_size</code> for neural models based on GPU memory.</li>
+                <li><strong>Parallel training</strong>: Set <code>n_jobs=-1</code> for ensemble models to use all CPU cores.</li>
+                <li><strong>Early stopping</strong>: Monitor validation scores and stop when they plateau.</li>
+                <li><strong>Feature scaling</strong>: Normalize features for SVM and KNN models.</li>
+            </ol>
+        </section>
+
+        <section id="api-compatibility">
+            <h2>API Compatibility</h2>
+            <p>Lightning ML follows scikit-learn conventions, ensuring compatibility with its ecosystem.</p>
+            <ul>
+                <li><code>fit(X, y)</code> - Train the model</li>
+                <li><code>predict(X)</code> - Make predictions</li>
+                <li><code>score(X, y)</code> - Evaluate model performance</li>
+                <li><code>get_params()</code> - Get model parameters</li>
+                <li><code>set_params(**params)</code> - Set model parameters</li>
+            </ul>
+        </section>
+
+    </main>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const mainContent = document.querySelector('main');
+            const sections = mainContent.querySelectorAll('section');
+            const toc = document.getElementById('table-of-contents');
+            const navLinks = new Map();
+
+            // 1. Generate Table of Contents
+            const tocList = document.createElement('ul');
+            sections.forEach(section => {
+                const title = section.querySelector('h2').textContent;
+                const id = section.id;
+
+                const listItem = document.createElement('li');
+                const link = document.createElement('a');
+                link.href = `#${id}`;
+                link.textContent = title;
+                
+                listItem.appendChild(link);
+                tocList.appendChild(listItem);
+                navLinks.set(section, link);
+            });
+            toc.appendChild(tocList);
+
+            // 2. Add 'Copy' buttons to code blocks
+            const codeContainers = document.querySelectorAll('.code-container');
+            codeContainers.forEach(container => {
+                const copyButton = container.querySelector('.copy-btn');
+                const code = container.querySelector('code');
+                
+                copyButton.addEventListener('click', () => {
+                    navigator.clipboard.writeText(code.innerText).then(() => {
+                        copyButton.textContent = 'Copied!';
+                        setTimeout(() => {
+                            copyButton.textContent = 'Copy';
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('Failed to copy text: ', err);
+                    });
+                });
+            });
+
+            // 3. Implement Scrollspy for active navigation link
+            const observer = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        document.querySelectorAll('#table-of-contents a').forEach(link => link.classList.remove('active'));
+                        const activeLink = navLinks.get(entry.target);
+                        if (activeLink) {
+                            activeLink.classList.add('active');
+                        }
+                    }
+                });
+            }, { rootMargin: '-20% 0px -70% 0px' }); // Adjust margins to highlight section when it's nicely in view
+
+            sections.forEach(section => {
+                observer.observe(section);
+            });
+            
+            // 4. Theme Switcher
+            const themeSwitcher = document.getElementById('theme-switcher');
+            const body = document.body;
+
+            // Check for saved theme preference
+            if (localStorage.getItem('theme') === 'dark') {
+                body.classList.add('dark-mode');
+            }
+
+            themeSwitcher.addEventListener('click', () => {
+                body.classList.toggle('dark-mode');
+                // Save theme preference
+                if (body.classList.contains('dark-mode')) {
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    localStorage.setItem('theme', 'light');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,338 @@
+"""
+Enhanced CognitiveEngine for Intelligent ML Model Selection
+Uses LLM to analyze model performance and select optimal models
+"""
+
+import re
+import json
+from typing import Dict, List, Any, Optional
+from langchain_ollama import ChatOllama
+from langchain_core.messages import SystemMessage, HumanMessage
+
+
+# System prompts for different tasks
+MODEL_SELECTION_SYSTEM_PROMPT = """You are an expert machine learning engineer analyzing model performance metrics.
+
+Your task is to select the TOP 3 models from a list of trained models based on comprehensive analysis.
+
+EVALUATION CRITERIA:
+1. **Primary Score** (40%): Consider the main metric (accuracy/R²/silhouette score)
+2. **Cross-Validation Stability** (25%): Lower standard deviation = more reliable
+3. **Overfitting Detection** (20%): Check if training score >> validation score
+4. **Training Efficiency** (10%): Faster training time is better (not critical)
+5. **Model Complexity** (5%): Simpler models preferred when scores are similar
+
+IMPORTANT:
+- A model with 92% accuracy and 1% CV std is BETTER than 95% accuracy with 8% CV std
+- Reject models with CV std > 10% (highly unstable)
+- Flag overfitting if training score > validation score + 5%
+- Consider ensemble diversity: prefer different model types in top 3
+
+OUTPUT FORMAT (JSON):
+{
+  "top_3_models": [
+    {
+      "rank": 1,
+      "model_name": "RandomForestClassifier",
+      "score": 0.94,
+      "cv_mean": 0.92,
+      "cv_std": 0.02,
+      "confidence": "high",
+      "reasoning": "Best balance of accuracy and stability",
+      "warnings": []
+    }
+  ],
+  "rejected_models": [
+    {
+      "model_name": "ModelX",
+      "reason": "High CV variance (12%) indicates overfitting"
+    }
+  ],
+  "custom_hyperparameters_suggestion": {
+    "should_try": false,
+    "rationale": "Current models perform well, no need for custom tuning"
+  },
+  "overall_analysis": "Summary of model performance landscape"
+}
+"""
+
+HYPERPARAMETER_TUNING_PROMPT = """You are an expert in hyperparameter optimization.
+
+Given the task type, dataset characteristics, and current best models, suggest optimal hyperparameters
+for a custom training run that might outperform existing models.
+
+TASK: Analyze the data and suggest hyperparameters only if you believe there's significant room for improvement.
+
+OUTPUT FORMAT (JSON):
+{
+  "recommendation": "tune" or "skip",
+  "confidence": "high/medium/low",
+  "suggested_model": "ModelName",
+  "hyperparameters": {
+    "param1": value,
+    "param2": value
+  },
+  "expected_improvement": "X% better than current best",
+  "reasoning": "Why these hyperparameters should work"
+}
+"""
+
+
+class CognitiveEngine:
+    """
+    Enhanced CognitiveEngine for intelligent ML model selection and hyperparameter tuning.
+    """
+
+    def __init__(self, 
+                 model_name: str = 'dolphin-llama3:8b', 
+                 temperature: float = 0.2):
+        """
+        Initialize the CognitiveEngine with LLM configuration.
+
+        Args:
+            model_name: Ollama model name
+            temperature: LLM temperature (lower = more deterministic)
+        """
+        self.llm = ChatOllama(
+            model=model_name,
+            temperature=temperature,
+            num_ctx=16_000,
+            format="json"
+        )
+    
+    def chat_llm(self, system_instruction: str, query: str) -> Dict:
+        """
+        Send query to LLM with system instruction and return parsed JSON response.
+
+        Args:
+            system_instruction: A guiding system message for the LLM
+            query: The actual user input query
+
+        Returns:
+            Dict: Parsed JSON dictionary response from the LLM
+        """
+        system_msg = SystemMessage(content=system_instruction)
+        user_msg = HumanMessage(content=query)
+
+        # Call the LLM
+        ai_msg = self.llm.invoke([system_msg, user_msg])
+        response = ai_msg.content
+
+        # Remove unwanted wrappers (e.g., <think>...</think>)
+        clean_response = re.sub(r"<think>.*?</think>", "", response, flags=re.DOTALL).strip()
+
+        # Parse JSON safely
+        try:
+            parsed = json.loads(clean_response)
+            return parsed
+        except json.JSONDecodeError as e:
+            print(f"Warning: JSON Parse Error: {e}")
+            print(f"Raw response snippet: {clean_response[:500]}")
+            return {}
+    
+    def select_best_models(self, 
+                          model_results: List[Dict[str, Any]], 
+                          task_type: str,
+                          dataset_info: Optional[Dict] = None) -> Dict:
+        """
+        Use LLM to intelligently select the top 3 models based on comprehensive analysis.
+        
+        Args:
+            model_results: List of model performance dictionaries
+            task_type: 'classification', 'regression', 'clustering', 'association'
+            dataset_info: Optional dataset characteristics
+            
+        Returns:
+            Dictionary with top 3 models, rejected models, and analysis
+        """
+        # Prepare input data
+        input_data = {
+            "task_type": task_type,
+            "models": model_results,
+            "dataset_info": dataset_info or {}
+        }
+        
+        # Query LLM
+        result = self.chat_llm(
+            MODEL_SELECTION_SYSTEM_PROMPT,
+            json.dumps(input_data, indent=2)
+        )
+        
+        return result
+    
+    def suggest_custom_hyperparameters(self,
+                                      top_models: List[Dict],
+                                      task_type: str,
+                                      dataset_info: Dict) -> Dict:
+        """
+        Suggest custom hyperparameters if LLM believes significant improvement is possible.
+        
+        Args:
+            top_models: Current top performing models
+            task_type: Type of ML task
+            dataset_info: Dataset characteristics
+            
+        Returns:
+            Hyperparameter recommendations
+        """
+        input_data = {
+            "task_type": task_type,
+            "current_best_models": top_models,
+            "dataset_characteristics": dataset_info
+        }
+        
+        result = self.chat_llm(
+            HYPERPARAMETER_TUNING_PROMPT,
+            json.dumps(input_data, indent=2)
+        )
+        
+        return result
+
+
+class ModelPerformanceAnalyzer:
+    """
+    Utility class to prepare model results for LLM analysis.
+    """
+    
+    @staticmethod
+    def format_model_results(results: List[Any], task_type: str) -> List[Dict]:
+        """
+        Format model results from AutoML for LLM consumption.
+        
+        Args:
+            results: List of ModelResult objects from AutoML
+            task_type: Type of ML task
+            
+        Returns:
+            Formatted list of dictionaries
+        """
+        formatted = []
+        
+        for result in results:
+            # Calculate CV statistics
+            cv_scores = result.cross_val_scores if hasattr(result, 'cross_val_scores') else []
+            cv_mean = float(sum(cv_scores) / len(cv_scores)) if cv_scores else result.score
+            cv_std = float(np.std(cv_scores)) if cv_scores else 0.0
+            
+            model_dict = {
+                "model_name": result.model_name,
+                "score": float(result.score),
+                "cv_mean": cv_mean,
+                "cv_std": cv_std,
+                "cv_scores": [float(s) for s in cv_scores],
+                "training_time": float(result.training_time),
+                "hyperparameters": result.hyperparameters,
+                "device_used": result.device_used,
+                "memory_usage": float(result.memory_usage),
+                "feature_importance_available": result.feature_importance is not None
+            }
+            
+            # Add overfitting detection
+            if cv_scores:
+                max_cv = max(cv_scores)
+                min_cv = min(cv_scores)
+                model_dict["cv_range"] = float(max_cv - min_cv)
+                model_dict["potential_overfitting"] = (result.score - cv_mean) > 0.05
+            
+            formatted.append(model_dict)
+        
+        # Sort by score
+        formatted.sort(key=lambda x: x['score'], reverse=True)
+        
+        return formatted
+    
+    @staticmethod
+    def get_dataset_summary(X, y, task_type: str) -> Dict:
+        """
+        Get dataset characteristics for LLM analysis.
+        
+        Args:
+            X: Feature matrix
+            y: Target vector
+            task_type: Type of ML task
+            
+        Returns:
+            Dataset summary dictionary
+        """
+        import numpy as np
+        import pandas as pd
+        
+        if isinstance(X, pd.DataFrame):
+            X = X.values
+        if isinstance(y, pd.Series):
+            y = y.values
+        
+        summary = {
+            "n_samples": int(X.shape[0]),
+            "n_features": int(X.shape[1]),
+            "task_type": task_type,
+            "feature_variance": float(np.var(X)),
+            "feature_mean_std": float(np.mean(np.std(X, axis=0)))
+        }
+        
+        if task_type == 'classification':
+            unique_classes = np.unique(y)
+            class_counts = {str(c): int(np.sum(y == c)) for c in unique_classes}
+            summary.update({
+                "n_classes": len(unique_classes),
+                "class_distribution": class_counts,
+                "imbalance_ratio": float(max(class_counts.values()) / min(class_counts.values()))
+            })
+        elif task_type == 'regression':
+            summary.update({
+                "target_mean": float(np.mean(y)),
+                "target_std": float(np.std(y)),
+                "target_range": [float(np.min(y)), float(np.max(y))]
+            })
+        
+        return summary
+
+
+# Integration function for AutoML
+def integrate_llm_model_selection(automl_results: List[Any],
+                                  task_type: str,
+                                  X, y,
+                                  engine: CognitiveEngine) -> Dict:
+    """
+    Complete integration of LLM-based model selection with AutoML.
+    
+    Args:
+        automl_results: Results from AutoML.fit()
+        task_type: ML task type
+        X: Feature matrix
+        y: Target vector
+        engine: CognitiveEngine instance
+        
+    Returns:
+        Comprehensive analysis with top models and recommendations
+    """
+    # Format results
+    formatted_results = ModelPerformanceAnalyzer.format_model_results(
+        automl_results, task_type
+    )
+    
+    # Get dataset summary
+    dataset_info = ModelPerformanceAnalyzer.get_dataset_summary(X, y, task_type)
+    
+    # Get LLM analysis
+    llm_analysis = engine.select_best_models(
+        formatted_results,
+        task_type,
+        dataset_info
+    )
+    
+    # Check if custom hyperparameter tuning is recommended
+    if llm_analysis.get('custom_hyperparameters_suggestion', {}).get('should_try', False):
+        top_models = llm_analysis.get('top_3_models', [])
+        hp_suggestions = engine.suggest_custom_hyperparameters(
+            top_models,
+            task_type,
+            dataset_info
+        )
+        llm_analysis['custom_tuning'] = hp_suggestions
+    
+    return llm_analysis
+
+
+# Numpy import for the analyzer
+import numpy as np
