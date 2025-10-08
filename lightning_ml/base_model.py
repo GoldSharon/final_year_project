@@ -1,5 +1,5 @@
 """
-Base Model for PyTorch ML Module
+Base Model for lightning_ml Module
 Provides common interface for all ML models (supervised and unsupervised)
 """
 
@@ -9,6 +9,10 @@ import numpy as np
 from typing import Optional, Dict, Any, Union, Tuple
 from abc import ABC, abstractmethod
 import warnings
+import logging
+
+# Configure module logger
+logger = logging.getLogger(__name__)
 
 
 class BaseModel(ABC):
@@ -36,15 +40,20 @@ class BaseModel(ABC):
             'loss': [],
             'epoch': []
         }
+        logger.info(f"Initialized {self.__class__.__name__} on device: {self.device}")
         
     def _get_default_device(self) -> torch.device:
         """Auto-detect optimal device."""
         if torch.cuda.is_available():
-            return torch.device('cuda')
+            device = torch.device('cuda')
+            logger.info("CUDA available - using GPU acceleration")
         elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            return torch.device('mps')  # Apple Silicon
+            device = torch.device('mps')  # Apple Silicon
+            logger.info("MPS available - using Apple Silicon GPU")
         else:
-            return torch.device('cpu')
+            device = torch.device('cpu')
+            logger.info("Using CPU for computation")
+        return device
     
     def _to_tensor(self, data: Union[np.ndarray, torch.Tensor], 
                    dtype: torch.dtype = torch.float32) -> torch.Tensor:
@@ -59,10 +68,15 @@ class BaseModel(ABC):
             PyTorch tensor on the correct device
         """
         if isinstance(data, torch.Tensor):
-            return data.to(self.device, dtype=dtype)
+            tensor = data.to(self.device, dtype=dtype)
+            logger.debug(f"Converted tensor to {self.device}, shape: {tensor.shape}")
+            return tensor
         elif isinstance(data, np.ndarray):
-            return torch.from_numpy(data).to(self.device, dtype=dtype)
+            tensor = torch.from_numpy(data).to(self.device, dtype=dtype)
+            logger.debug(f"Converted numpy array to tensor, shape: {tensor.shape}")
+            return tensor
         else:
+            logger.error(f"Unsupported data type: {type(data)}")
             raise TypeError(f"Unsupported data type: {type(data)}")
     
     def _to_numpy(self, tensor: torch.Tensor) -> np.ndarray:
@@ -76,8 +90,10 @@ class BaseModel(ABC):
             Numpy array
         """
         if isinstance(tensor, torch.Tensor):
-            return tensor.detach().cpu().numpy()
-        return tensor
+            array = tensor.detach().cpu().numpy()
+            logger.debug(f"Converted tensor to numpy array, shape: {array.shape}")
+            return array
+        return np.asarray(tensor)
     
     def _validate_input(self, X: torch.Tensor, y: Optional[torch.Tensor] = None):
         """
@@ -88,23 +104,27 @@ class BaseModel(ABC):
             y: Target tensor (optional)
         """
         if X.dim() == 1:
+            logger.error(f"Invalid input shape: X is 1D, expected 2D")
             raise ValueError("X must be 2D array (n_samples, n_features)")
         
         if y is not None:
             if len(X) != len(y):
+                logger.error(f"Shape mismatch: X={len(X)}, y={len(y)}")
                 raise ValueError(f"X and y must have same number of samples. "
                                f"Got X: {len(X)}, y: {len(y)}")
+        
+        logger.debug(f"Input validation passed: X.shape={X.shape}, y.shape={y.shape if y is not None else None}")
     
     @abstractmethod
     def fit(self, X: Union[np.ndarray, torch.Tensor], 
-            y: Union[np.ndarray, torch.Tensor], 
+            y: Union[np.ndarray, torch.Tensor] = None, 
             **kwargs) -> 'BaseModel':
         """
         Fit the model to training data.
         
         Args:
             X: Training features
-            y: Training targets
+            y: Training targets (optional for unsupervised)
             **kwargs: Additional parameters
             
         Returns:
@@ -125,17 +145,13 @@ class BaseModel(ABC):
         """
         pass
     
-    def get_params(self) -> Dict[str, Any]:
-        """
-        Get model parameters.
-        
-        Returns:
-            Dictionary of model parameters
-        """
-        return {
+    def get_params(self, deep: bool = True) -> Dict[str, Any]:
+        """Get model parameters (scikit-learn compatible)."""
+        params = {
             'device': str(self.device),
             'is_fitted': self.is_fitted
         }
+        return params.copy() if deep else params
     
     def set_params(self, **params):
         """
@@ -147,6 +163,9 @@ class BaseModel(ABC):
         for key, value in params.items():
             if hasattr(self, key):
                 setattr(self, key, value)
+                logger.debug(f"Set parameter {key}={value}")
+            else:
+                logger.warning(f"Parameter {key} not found in model")
         return self
     
     def save_model(self, filepath: str):
@@ -157,16 +176,23 @@ class BaseModel(ABC):
             filepath: Path to save model
         """
         if not self.is_fitted:
+            logger.warning("Saving unfitted model")
             warnings.warn("Saving unfitted model")
         
         state = {
             'model_state': self.model.state_dict() if self.model is not None else None,
             'params': self.get_params(),
             'training_history': self._training_history,
-            'is_fitted': self.is_fitted
+            'is_fitted': self.is_fitted,
+            'model_class': self.__class__.__name__
         }
         
-        torch.save(state, filepath)
+        try:
+            torch.save(state, filepath)
+            logger.info(f"Model saved successfully to {filepath}")
+        except Exception as e:
+            logger.error(f"Failed to save model to {filepath}: {str(e)}")
+            raise
     
     def load_model(self, filepath: str):
         """
@@ -175,19 +201,27 @@ class BaseModel(ABC):
         Args:
             filepath: Path to model file
         """
-        state = torch.load(filepath, map_location=self.device)
-        
-        if self.model is not None and state['model_state'] is not None:
-            self.model.load_state_dict(state['model_state'])
-        
-        self.is_fitted = state.get('is_fitted', False)
-        self._training_history = state.get('training_history', {'loss': [], 'epoch': []})
-        
-        # Restore parameters
-        params = state.get('params', {})
-        for key, value in params.items():
-            if hasattr(self, key) and key != 'is_fitted':
-                setattr(self, key, value)
+        try:
+            state = torch.load(filepath, map_location=self.device, weights_only=False)
+            logger.info(f"Loading model from {filepath}")
+            
+            if self.model is not None and state['model_state'] is not None:
+                self.model.load_state_dict(state['model_state'])
+                logger.debug("Model state loaded successfully")
+            
+            self.is_fitted = state.get('is_fitted', False)
+            self._training_history = state.get('training_history', {'loss': [], 'epoch': []})
+            
+            # Restore parameters
+            params = state.get('params', {})
+            for key, value in params.items():
+                if hasattr(self, key) and key != 'is_fitted':
+                    setattr(self, key, value)
+            
+            logger.info(f"Model loaded successfully. is_fitted={self.is_fitted}")
+        except Exception as e:
+            logger.error(f"Failed to load model from {filepath}: {str(e)}")
+            raise
     
     def get_training_history(self) -> Dict[str, list]:
         """
@@ -208,6 +242,7 @@ class BaseModel(ABC):
         self.device = torch.device(device) if isinstance(device, str) else device
         if self.model is not None:
             self.model = self.model.to(self.device)
+        logger.info(f"Model moved to device: {self.device}")
         return self
 
 
@@ -221,11 +256,31 @@ class BaseSupervisedModel(BaseModel):
         self.n_features_in_ = None
         self.n_samples_seen_ = 0
     
-    def _update_fit_info(self, X: torch.Tensor):
+    def _update_fit_info(self, X: Union[torch.Tensor, np.ndarray]):
         """Update metadata after fitting."""
+        if isinstance(X, torch.Tensor):
+            X = self._to_numpy(X)
         self.n_features_in_ = X.shape[1]
         self.n_samples_seen_ = X.shape[0]
         self.is_fitted = True
+        logger.info(f"Model fitted: n_samples={self.n_samples_seen_}, n_features={self.n_features_in_}")
+    
+    @abstractmethod
+    def fit(self, X: Union[np.ndarray, torch.Tensor], 
+            y: Union[np.ndarray, torch.Tensor], 
+            **kwargs) -> 'BaseSupervisedModel':
+        """
+        Fit the model to training data.
+        
+        Args:
+            X: Training features
+            y: Training targets
+            **kwargs: Additional parameters
+            
+        Returns:
+            self: Fitted model
+        """
+        pass
     
     def score(self, X: Union[np.ndarray, torch.Tensor], 
               y: Union[np.ndarray, torch.Tensor]) -> float:
@@ -245,6 +300,7 @@ class BaseSupervisedModel(BaseModel):
             y = self._to_numpy(y)
         
         # This should be overridden in child classes
+        logger.warning(f"{self.__class__.__name__}.score() not implemented, returning 0.0")
         return 0.0
 
 
@@ -257,6 +313,15 @@ class BaseUnsupervisedModel(BaseModel):
         super().__init__(device)
         self.n_features_in_ = None
         self.n_samples_seen_ = 0
+    
+    def _update_fit_info(self, X: Union[torch.Tensor, np.ndarray]):
+        """Update metadata after fitting."""
+        if isinstance(X, torch.Tensor):
+            X = self._to_numpy(X)
+        self.n_features_in_ = X.shape[1]
+        self.n_samples_seen_ = X.shape[0]
+        self.is_fitted = True
+        logger.info(f"Model fitted: n_samples={self.n_samples_seen_}, n_features={self.n_features_in_}")
     
     def fit(self, X: Union[np.ndarray, torch.Tensor], 
             y=None, **kwargs) -> 'BaseUnsupervisedModel':
@@ -286,6 +351,7 @@ class BaseUnsupervisedModel(BaseModel):
         Returns:
             Cluster labels or predictions
         """
+        logger.info("Running fit_predict")
         self.fit(X, y)
         return self.predict(X)
 
@@ -301,7 +367,8 @@ class BaseNeuralModel(BaseSupervisedModel):
                  lr: float = 0.01,
                  batch_size: int = 32,
                  optimizer: str = 'adam',
-                 device: Optional[torch.device] = None):
+                 device: Optional[torch.device] = None,
+                 verbose: bool = False):
         """
         Initialize neural model.
         
@@ -311,6 +378,7 @@ class BaseNeuralModel(BaseSupervisedModel):
             batch_size: Batch size for training
             optimizer: Optimizer type ('adam', 'sgd', 'rmsprop')
             device: Computation device
+            verbose: Whether to log training progress
         """
         super().__init__(device)
         self.epochs = epochs
@@ -319,10 +387,13 @@ class BaseNeuralModel(BaseSupervisedModel):
         self.optimizer_name = optimizer
         self.optimizer = None
         self.criterion = None
+        self.verbose = verbose
+        logger.info(f"Neural model initialized: epochs={epochs}, lr={lr}, batch_size={batch_size}, optimizer={optimizer}")
     
     def _create_optimizer(self):
         """Create optimizer based on configuration."""
         if self.model is None:
+            logger.error("Cannot create optimizer: model not initialized")
             raise ValueError("Model must be initialized before creating optimizer")
         
         if self.optimizer_name.lower() == 'adam':
@@ -332,17 +403,22 @@ class BaseNeuralModel(BaseSupervisedModel):
         elif self.optimizer_name.lower() == 'rmsprop':
             self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.lr)
         else:
+            logger.error(f"Unknown optimizer: {self.optimizer_name}")
             raise ValueError(f"Unknown optimizer: {self.optimizer_name}")
+        
+        logger.info(f"Created optimizer: {self.optimizer_name}")
     
     def _create_data_loader(self, X: torch.Tensor, y: torch.Tensor, 
                            shuffle: bool = True):
         """Create PyTorch DataLoader."""
         dataset = torch.utils.data.TensorDataset(X, y)
-        return torch.utils.data.DataLoader(
+        data_loader = torch.utils.data.DataLoader(
             dataset, 
             batch_size=self.batch_size, 
             shuffle=shuffle
         )
+        logger.debug(f"Created DataLoader: batch_size={self.batch_size}, shuffle={shuffle}, n_batches={len(data_loader)}")
+        return data_loader
     
     def _train_epoch(self, data_loader) -> float:
         """
@@ -372,16 +448,18 @@ class BaseNeuralModel(BaseSupervisedModel):
             total_loss += loss.item()
             n_batches += 1
         
-        return total_loss / n_batches if n_batches > 0 else 0.0
+        avg_loss = total_loss / n_batches if n_batches > 0 else 0.0
+        return avg_loss
     
-    def get_params(self) -> Dict[str, Any]:
+    def get_params(self, deep: bool = True) -> Dict[str, Any]:
         """Get model parameters."""
         params = super().get_params()
         params.update({
             'epochs': self.epochs,
             'lr': self.lr,
             'batch_size': self.batch_size,
-            'optimizer': self.optimizer_name
+            'optimizer': self.optimizer_name,
+            'verbose': self.verbose
         })
         return params
 
@@ -413,10 +491,11 @@ class BaseTreeModel(BaseSupervisedModel):
         self.min_samples_leaf = min_samples_leaf
         self.tree_ = None
         self.feature_importances_ = None
+        logger.info(f"Tree model initialized: max_depth={max_depth}, min_samples_split={min_samples_split}, min_samples_leaf={min_samples_leaf}")
     
-    def get_params(self) -> Dict[str, Any]:
+    def get_params(self, deep: bool = True) -> Dict[str, Any]:
         """Get model parameters."""
-        params = super().get_params()
+        params = super().get_params(deep=deep)
         params.update({
             'max_depth': self.max_depth,
             'min_samples_split': self.min_samples_split,

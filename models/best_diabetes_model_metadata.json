@@ -1,0 +1,22 @@
+{
+  "model_name": "RandomForestRegressor",
+  "score": 0.4660561545153412,
+  "cv_scores": [
+    0.47455171752558756,
+    0.46947814554226885,
+    0.45562775199880623
+  ],
+  "cv_std": 0.0079978539151833,
+  "training_time": 8.693853855133057,
+  "hyperparameters": {
+    "max_depth": 33,
+    "bootstrap": true,
+    "n_estimators": 120,
+    "min_samples_split": 4,
+    "min_samples_leaf": 5,
+    "max_features": "sqrt",
+    "criterion": "squared_error"
+  },
+  "device": "cuda",
+  "memory_used_mb": 0.4136800765991211
+}

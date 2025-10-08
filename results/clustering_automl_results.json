@@ -1,0 +1,53 @@
+{
+  "config": {
+    "ml_type": "unsupervised",
+    "method": "clustering",
+    "time_budget": 300,
+    "n_trials": 10,
+    "cv_folds": 5,
+    "device": "cuda",
+    "random_state": 42
+  },
+  "summary": {
+    "total_models_trained": 2,
+    "best_model": "KMeans",
+    "best_score": 0.8598282581279164,
+    "metric_name": "silhouette_score"
+  },
+  "results": [
+    {
+      "model_name": "KMeans",
+      "score": 0.8598282581279164,
+      "cv_scores": [
+        0.8598282581279164
+      ],
+      "cv_std": 0.0,
+      "training_time": 2.92702579498291,
+      "hyperparameters": {
+        "n_clusters": 3,
+        "max_iter": 900,
+        "tol": 0.00025378155082656634,
+        "n_init": 16,
+        "init": "random"
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.0028438568115234375
+    },
+    {
+      "model_name": "DBSCAN",
+      "score": 0.647278666373425,
+      "cv_scores": [
+        0.647278666373425
+      ],
+      "cv_std": 0.0,
+      "training_time": 0.749011754989624,
+      "hyperparameters": {
+        "eps": 3.947362210825767,
+        "min_samples": 5,
+        "metric": "manhattan"
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.0034503936767578125
+    }
+  ]
+}

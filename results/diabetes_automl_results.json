@@ -1,0 +1,157 @@
+{
+  "config": {
+    "ml_type": "supervised",
+    "method": "regression",
+    "time_budget": 60,
+    "n_trials": 10,
+    "cv_folds": 3,
+    "device": "cuda",
+    "random_state": 42
+  },
+  "summary": {
+    "total_models_trained": 7,
+    "best_model": "RandomForestRegressor",
+    "best_score": 0.4660561545153412,
+    "metric_name": "r2_score"
+  },
+  "results": [
+    {
+      "model_name": "RandomForestRegressor",
+      "score": 0.4660561545153412,
+      "cv_scores": [
+        0.47455171752558756,
+        0.46947814554226885,
+        0.45562775199880623
+      ],
+      "cv_std": 0.0079978539151833,
+      "training_time": 8.693853855133057,
+      "hyperparameters": {
+        "max_depth": 33,
+        "bootstrap": true,
+        "n_estimators": 120,
+        "min_samples_split": 4,
+        "min_samples_leaf": 5,
+        "max_features": "sqrt",
+        "criterion": "squared_error"
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.4136800765991211
+    },
+    {
+      "model_name": "KNNRegressor",
+      "score": 0.43489969117700433,
+      "cv_scores": [
+        0.4999122769224078,
+        0.4120694607628813,
+        0.449021522410605
+      ],
+      "cv_std": 0.03601185623534147,
+      "training_time": 0.12142014503479004,
+      "hyperparameters": {
+        "n_neighbors": 22,
+        "weights": "distance",
+        "metric": "cosine"
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.0108489990234375
+    },
+    {
+      "model_name": "LinearRegression",
+      "score": 0.4129412349276237,
+      "cv_scores": [
+        0.5169080777485321,
+        0.45974906021526674,
+        0.4711442031048251
+      ],
+      "cv_std": 0.024701180334475513,
+      "training_time": 0.07952547073364258,
+      "hyperparameters": {
+        "fit_intercept": true
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.000949859619140625
+    },
+    {
+      "model_name": "DecisionTreeRegressor",
+      "score": 0.2976240987633586,
+      "cv_scores": [
+        0.18769273290813349,
+        0.17962069913693735,
+        0.3661611836841445
+      ],
+      "cv_std": 0.08609652078833102,
+      "training_time": 16.49831795692444,
+      "hyperparameters": {
+        "min_samples_split": 15,
+        "min_samples_leaf": 6,
+        "max_features": null,
+        "criterion": "mae"
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.0037775039672851562
+    },
+    {
+      "model_name": "RidgeRegression",
+      "score": -0.16790232258233773,
+      "cv_scores": [
+        -0.26067470200672527,
+        -0.14459827178265816,
+        -0.20108610915930836
+      ],
+      "cv_std": 0.04739363977791491,
+      "training_time": 77.97643446922302,
+      "hyperparameters": {
+        "alpha": 0.0745934328572655,
+        "epochs": 500,
+        "lr": 0.015702970884055395,
+        "batch_size": 16,
+        "optimizer": "adam"
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.009683609008789062
+    },
+    {
+      "model_name": "LassoRegression",
+      "score": -0.17160068656805816,
+      "cv_scores": [
+        -0.25593095054988724,
+        -0.14870538800586197,
+        -0.2054682154325378
+      ],
+      "cv_std": 0.043799831907182556,
+      "training_time": 72.23507523536682,
+      "hyperparameters": {
+        "alpha": 0.0745934328572655,
+        "epochs": 500,
+        "lr": 0.015702970884055395,
+        "batch_size": 16,
+        "optimizer": "adam"
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.009683609008789062
+    },
+    {
+      "model_name": "SVMRegressor",
+      "score": -4.010971457684679,
+      "cv_scores": [
+        -3.946901864735425,
+        -3.976300047552499,
+        -3.8465565648489246
+      ],
+      "cv_std": 0.05554458035999403,
+      "training_time": 45.14739203453064,
+      "hyperparameters": {
+        "kernel": "rbf",
+        "C": 0.2938027938703535,
+        "epsilon": 0.020511104188433976,
+        "epochs": 100,
+        "lr": 0.005399484409787433,
+        "batch_size": 32,
+        "optimizer": "adam",
+        "gamma": 0.016480446427978974
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.05215930938720703
+    }
+  ]
+}

@@ -8,6 +8,9 @@ import numpy as np
 from typing import Union, Optional, Tuple
 from dataclasses import dataclass
 from .base_model import BaseTreeModel
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -83,12 +86,12 @@ class DecisionTreeBase(BaseTreeModel):
         return np.random.choice(n_features, n, replace=False)
     
     def _calculate_impurity(self, y: torch.Tensor) -> float:
-        """Calculate impurity (to be overridden by child classes)."""
-        raise NotImplementedError
+        """Calculate impurity (must be implemented by child classes)."""
+        raise NotImplementedError("Child classes must implement _calculate_impurity")
     
     def _calculate_leaf_value(self, y: torch.Tensor) -> Union[float, int]:
-        """Calculate leaf node value (to be overridden by child classes)."""
-        raise NotImplementedError
+        """Calculate leaf node value (must be implemented by child classes)."""
+        raise NotImplementedError("Child classes must implement _calculate_leaf_value")
     
     def _find_best_split(self, 
                         X: torch.Tensor, 
@@ -284,13 +287,188 @@ class DecisionTreeBase(BaseTreeModel):
         
         return self.get_n_leaves(node.left) + self.get_n_leaves(node.right)
     
-    def get_params(self):
-        params = super().get_params()
+    def get_params(self, deep: bool = True):
+        params = super().get_params(deep=deep)
         params.update({
             'max_features': self.max_features,
             'random_state': self.random_state
         })
         return params
+    
+    def to(self, device: Union[str, torch.device]):
+        """
+        Move model to specified device.
+        
+        Note: Decision trees don't store tensors permanently like neural networks.
+        This method updates the device attribute for future tensor operations.
+        
+        Args:
+            device: Target device ('cuda', 'cpu', 'mps', or torch.device object)
+            
+        Returns:
+            self for method chaining
+        """
+        self.device = torch.device(device) if isinstance(device, str) else device
+        
+        # Convert feature_importances_ if it exists and is a tensor
+        if hasattr(self, 'feature_importances_') and self.feature_importances_ is not None:
+            if isinstance(self.feature_importances_, torch.Tensor):
+                self.feature_importances_ = self.feature_importances_.to(self.device)
+        
+        logger.info(f"Model device set to: {self.device}")
+        return self
+    
+    def _tree_to_dict(self, node: Optional[TreeNode]) -> Optional[dict]:
+        """
+        Recursively convert tree structure to dictionary for serialization.
+        
+        Args:
+            node: TreeNode to convert
+            
+        Returns:
+            Dictionary representation of the tree
+        """
+        if node is None:
+            return None
+        
+        return {
+            'feature_idx': node.feature_idx,
+            'threshold': node.threshold,
+            'value': node.value,
+            'impurity': node.impurity,
+            'n_samples': node.n_samples,
+            'class_counts': node.class_counts,
+            'left': self._tree_to_dict(node.left),
+            'right': self._tree_to_dict(node.right)
+        }
+
+    def _dict_to_tree(self, tree_dict: Optional[dict]) -> Optional[TreeNode]:
+        """
+        Recursively convert dictionary back to tree structure.
+        
+        Args:
+            tree_dict: Dictionary representation of tree
+            
+        Returns:
+            TreeNode object
+        """
+        if tree_dict is None:
+            return None
+        
+        node = TreeNode(
+            feature_idx=tree_dict['feature_idx'],
+            threshold=tree_dict['threshold'],
+            value=tree_dict['value'],
+            impurity=tree_dict['impurity'],
+            n_samples=tree_dict['n_samples'],
+            class_counts=tree_dict['class_counts']
+        )
+        
+        node.left = self._dict_to_tree(tree_dict['left'])
+        node.right = self._dict_to_tree(tree_dict['right'])
+        
+        return node
+
+    def save_model(self, filepath: str):
+        """
+        Save decision tree model to file.
+        
+        Args:
+            filepath: Path where the model will be saved
+        """
+        if not self.is_fitted:
+            logger.warning("Saving unfitted model")
+            import warnings
+            warnings.warn("Saving unfitted model - predictions may not work correctly")
+        
+        # Convert tree structure to dictionary
+        tree_dict = self._tree_to_dict(self.tree_)
+        
+        # Build state dictionary
+        state = {
+            'tree': tree_dict,
+            'params': self.get_params(),
+            'training_history': self._training_history,
+            'is_fitted': self.is_fitted,
+            'model_class': self.__class__.__name__,
+            'n_features_in_': self.n_features_in_,
+            'n_samples_seen_': self.n_samples_seen_,
+            'feature_importances_': self.feature_importances_
+        }
+        
+        # Add classifier-specific attributes if they exist
+        if hasattr(self, 'classes_'):
+            state['classes_'] = self.classes_
+            state['n_classes_'] = self.n_classes_
+        
+        # Add criterion
+        if hasattr(self, 'criterion'):
+            state['criterion'] = self.criterion
+        
+        try:
+            torch.save(state, filepath)
+            logger.info(f"Decision tree model saved successfully to {filepath}")
+            print(f"✓ Model saved to {filepath}")
+        except Exception as e:
+            logger.error(f"Failed to save model to {filepath}: {str(e)}")
+            raise RuntimeError(f"Failed to save model: {str(e)}")
+
+    def load_model(self, filepath: str):
+        """
+        Load decision tree model from file.
+        
+        Args:
+            filepath: Path to the saved model file
+        
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            RuntimeError: If loading fails
+        """
+        try:
+            # Load state dictionary
+            state = torch.load(filepath, map_location=self.device, weights_only=False)
+            logger.info(f"Loading decision tree model from {filepath}")
+            
+            # Restore tree structure
+            tree_dict = state.get('tree')
+            self.tree_ = self._dict_to_tree(tree_dict)
+            
+            # Restore core attributes
+            self.is_fitted = state.get('is_fitted', False)
+            self._training_history = state.get('training_history', {'loss': [], 'epoch': []})
+            self.n_features_in_ = state.get('n_features_in_')
+            self.n_samples_seen_ = state.get('n_samples_seen_', 0)
+            self.feature_importances_ = state.get('feature_importances_')
+            
+            # Restore classifier-specific attributes
+            if 'classes_' in state:
+                self.classes_ = state['classes_']
+                self.n_classes_ = state['n_classes_']
+            
+            # Restore criterion
+            if 'criterion' in state:
+                self.criterion = state['criterion']
+            
+            # Restore model parameters
+            params = state.get('params', {})
+            for key, value in params.items():
+                if hasattr(self, key) and key not in ['is_fitted', 'device', 'n_features_in_', 
+                                                        'n_samples_seen_', 'classes_', 'n_classes_']:
+                    setattr(self, key, value)
+            
+            logger.info(f"Decision tree model loaded successfully. is_fitted={self.is_fitted}")
+            print(f"✓ Model loaded from {filepath}")
+            
+            # Verify the loaded model
+            if self.is_fitted and self.tree_ is None:
+                logger.warning("Model marked as fitted but tree structure is None")
+                
+        except FileNotFoundError:
+            logger.error(f"Model file not found: {filepath}")
+            raise FileNotFoundError(f"Model file not found: {filepath}")
+        except Exception as e:
+            logger.error(f"Failed to load model from {filepath}: {str(e)}")
+            raise RuntimeError(f"Failed to load model: {str(e)}")
 
 
 class DecisionTreeRegressor(DecisionTreeBase):
@@ -320,23 +498,25 @@ class DecisionTreeRegressor(DecisionTreeBase):
         self.criterion = criterion
     
     def _calculate_impurity(self, y: torch.Tensor) -> float:
-        """Calculate MSE or MAE."""
+        """Calculate MSE or MAE impurity."""
         if len(y) == 0:
             return 0.0
         
-        if self.criterion == 'mse':
+        if self.criterion == 'mse' or self.criterion == 'squared_error':
             mean = y.mean()
             return ((y - mean) ** 2).mean().item()
-        else:  # mae
-            median = y.median().values if hasattr(y.median(), 'values') else y.median()
-            return (y - median).abs().mean().item()
+        elif self.criterion == 'mae' or self.criterion == 'absolute_error':
+            median = torch.median(y)
+            return torch.abs(y - median).mean().item()
+        else:
+            # Default to MSE
+            mean = y.mean()
+            return ((y - mean) ** 2).mean().item()
     
     def _calculate_leaf_value(self, y: torch.Tensor) -> float:
         """Calculate mean for leaf node."""
         return y.mean().item()
     
-    # ------------------ DecisionTreeRegressor ------------------
-
     def fit(self, X: Union[np.ndarray, torch.Tensor], 
             y: Union[np.ndarray, torch.Tensor],
             verbose: bool = False) -> 'DecisionTreeRegressor':
@@ -352,7 +532,7 @@ class DecisionTreeRegressor(DecisionTreeBase):
         
         self._validate_input(X, y)
         
-        # Update feature info first
+        # Update feature info
         self._update_fit_info(X)
         
         # Build tree
@@ -402,17 +582,8 @@ class DecisionTreeRegressor(DecisionTreeBase):
         return predictions
     
     def score(self, X: Union[np.ndarray, torch.Tensor], 
-              y: Union[np.ndarray, torch.Tensor]) -> float:
-        """
-        Calculate R² score.
-        
-        Args:
-            X: Test features
-            y: True targets
-            
-        Returns:
-            R² score
-        """
+            y: Union[np.ndarray, torch.Tensor]) -> float:
+        """Calculate R² score."""
         predictions = self.predict(X)
         
         if isinstance(y, torch.Tensor):
@@ -421,6 +592,10 @@ class DecisionTreeRegressor(DecisionTreeBase):
         if y.ndim > 1:
             y = y.squeeze()
         
+        if isinstance(predictions, torch.Tensor):
+            predictions = self._to_numpy(predictions)
+        
+        # Calculate R² score (coefficient of determination)
         ss_res = np.sum((y - predictions) ** 2)
         ss_tot = np.sum((y - np.mean(y)) ** 2)
         
@@ -475,15 +650,6 @@ class DecisionTreeClassifier(DecisionTreeBase):
         mode_idx = counts.argmax()
         return values[mode_idx].item()
     
-    def _store_class_counts(self, y: torch.Tensor, node: TreeNode):
-        """Store class distribution in leaf nodes for probability estimates."""
-        if node.is_leaf():
-            values, counts = torch.unique(y, return_counts=True)
-            node.class_counts = {
-                int(val.item()): int(count.item()) 
-                for val, count in zip(values, counts)
-            }
-    
     def _build_tree_with_counts(self, X: torch.Tensor, y: torch.Tensor, 
                                 depth: int = 0) -> TreeNode:
         """Build tree and store class counts in leaf nodes."""
@@ -519,7 +685,7 @@ class DecisionTreeClassifier(DecisionTreeBase):
         
         self._validate_input(X, y)
         
-        # Update feature info first
+        # Update feature info
         self._update_fit_info(X)
         
         # Build tree with class counts
@@ -635,3 +801,175 @@ class DecisionTreeClassifier(DecisionTreeBase):
             y = y.squeeze()
         
         return np.mean(predictions == y)
+
+
+# Test code
+# if __name__ == '__main__':
+#     import numpy as np
+#     from sklearn.datasets import load_iris, load_diabetes
+#     from sklearn.model_selection import train_test_split
+#     from sklearn.metrics import accuracy_score, r2_score
+#     import os
+    
+#     print("=" * 70)
+#     print("TESTING DECISION TREE CLASSIFIER")
+#     print("=" * 70)
+    
+#     # Load Iris dataset
+#     iris = load_iris()
+#     X, y = iris.data, iris.target
+    
+#     # Split data
+#     X_train, X_test, y_train, y_test = train_test_split(
+#         X, y, test_size=0.3, random_state=42
+#     )
+    
+#     print(f"\nDataset Info:")
+#     print(f"  Training samples: {len(X_train)}")
+#     print(f"  Test samples: {len(X_test)}")
+#     print(f"  Features: {X_train.shape[1]}")
+#     print(f"  Classes: {len(np.unique(y))}")
+    
+#     # Train classifier
+#     print("\n[1] Training Decision Tree Classifier...")
+#     clf = DecisionTreeClassifier(
+#         max_depth=5,
+#         min_samples_split=2,
+#         criterion='gini',
+#         random_state=42
+#     )
+#     clf.fit(X_train, y_train, verbose=True)
+    
+#     # Evaluate
+#     train_pred = clf.predict(X_train)
+#     test_pred = clf.predict(X_test)
+    
+#     train_acc = accuracy_score(y_train, train_pred)
+#     test_acc = accuracy_score(y_test, test_pred)
+    
+#     print(f"\n[2] Model Performance:")
+#     print(f"  Training Accuracy: {train_acc:.4f}")
+#     print(f"  Test Accuracy: {test_acc:.4f}")
+#     print(f"  Tree Depth: {clf.get_depth()}")
+#     print(f"  Number of Leaves: {clf.get_n_leaves()}")
+    
+#     # Test predict_proba
+#     probas = clf.predict_proba(X_test[:3])
+#     print(f"\n[3] Sample Predictions:")
+#     for i in range(3):
+#         print(f"  Sample {i}: Pred={test_pred[i]}, True={y_test[i]}, " + 
+#               f"Proba={probas[i].round(3)}")
+    
+#     # Feature importances
+#     print(f"\n[4] Feature Importances:")
+#     for i, imp in enumerate(clf.feature_importances_):
+#         print(f"  {iris.feature_names[i]}: {imp:.4f}")
+    
+#     # Save model
+#     save_path = 'dt_classifier_test.pth'
+#     print(f"\n[5] Saving model to '{save_path}'...")
+#     clf.save_model(save_path)
+    
+#     # Load model
+#     print(f"\n[6] Loading model from '{save_path}'...")
+#     clf_loaded = DecisionTreeClassifier()
+#     clf_loaded.load_model(save_path)
+    
+#     # Verify loaded model
+#     test_pred_loaded = clf_loaded.predict(X_test)
+#     test_acc_loaded = accuracy_score(y_test, test_pred_loaded)
+    
+#     print(f"\n[7] Loaded Model Verification:")
+#     print(f"  Test Accuracy: {test_acc_loaded:.4f}")
+#     print(f"  Predictions match original: {np.array_equal(test_pred, test_pred_loaded)}")
+#     print(f"  Tree depth preserved: {clf_loaded.get_depth() == clf.get_depth()}")
+#     print(f"  Feature importances match: {np.allclose(clf.feature_importances_, clf_loaded.feature_importances_)}")
+    
+#     # Clean up
+#     if os.path.exists(save_path):
+#         os.remove(save_path)
+#         print(f"\n  ✓ Cleaned up test file")
+    
+    
+#     # TEST REGRESSOR
+#     print("\n\n" + "=" * 70)
+#     print("TESTING DECISION TREE REGRESSOR")
+#     print("=" * 70)
+    
+#     # Load Diabetes dataset
+#     diabetes = load_diabetes()
+#     X, y = diabetes.data, diabetes.target
+    
+#     # Split data
+#     X_train, X_test, y_train, y_test = train_test_split(
+#         X, y, test_size=0.3, random_state=42
+#     )
+    
+#     print(f"\nDataset Info:")
+#     print(f"  Training samples: {len(X_train)}")
+#     print(f"  Test samples: {len(X_test)}")
+#     print(f"  Features: {X_train.shape[1]}")
+    
+#     # Train regressor
+#     print("\n[1] Training Decision Tree Regressor...")
+#     reg = DecisionTreeRegressor(
+#         max_depth=5,
+#         min_samples_split=5,
+#         criterion='mse',
+#         random_state=42
+#     )
+#     reg.fit(X_train, y_train, verbose=True)
+    
+#     # Evaluate
+#     train_pred = reg.predict(X_train)
+#     test_pred = reg.predict(X_test)
+    
+#     train_r2 = r2_score(y_train, train_pred)
+#     test_r2 = r2_score(y_test, test_pred)
+    
+#     print(f"\n[2] Model Performance:")
+#     print(f"  Training R² Score: {train_r2:.4f}")
+#     print(f"  Test R² Score: {test_r2:.4f}")
+#     print(f"  Tree Depth: {reg.get_depth()}")
+#     print(f"  Number of Leaves: {reg.get_n_leaves()}")
+    
+#     # Sample predictions
+#     print(f"\n[3] Sample Predictions:")
+#     for i in range(3):
+#         print(f"  Sample {i}: Pred={test_pred[i]:.2f}, True={y_test[i]:.2f}, " +
+#               f"Error={abs(test_pred[i] - y_test[i]):.2f}")
+    
+#     # Feature importances
+#     print(f"\n[4] Top 5 Important Features:")
+#     top_features = np.argsort(reg.feature_importances_)[-5:][::-1]
+#     for idx in top_features:
+#         print(f"  Feature {idx}: {reg.feature_importances_[idx]:.4f}")
+    
+#     # Save model
+#     save_path = 'dt_regressor_test.pth'
+#     print(f"\n[5] Saving model to '{save_path}'...")
+#     reg.save_model(save_path)
+    
+#     # Load model
+#     print(f"\n[6] Loading model from '{save_path}'...")
+#     reg_loaded = DecisionTreeRegressor()
+#     reg_loaded.load_model(save_path)
+    
+#     # Verify loaded model
+#     test_pred_loaded = reg_loaded.predict(X_test)
+#     test_r2_loaded = r2_score(y_test, test_pred_loaded)
+    
+#     print(f"\n[7] Loaded Model Verification:")
+#     print(f"  Test R² Score: {test_r2_loaded:.4f}")
+#     print(f"  Predictions match original: {np.allclose(test_pred, test_pred_loaded)}")
+#     print(f"  Tree depth preserved: {reg_loaded.get_depth() == reg.get_depth()}")
+#     print(f"  Feature importances match: {np.allclose(reg.feature_importances_, reg_loaded.feature_importances_)}")
+    
+#     # Clean up
+#     if os.path.exists(save_path):
+#         os.remove(save_path)
+#         print(f"\n  ✓ Cleaned up test file")
+    
+#     print("\n" + "=" * 70)
+#     print("ALL TESTS COMPLETED SUCCESSFULLY!")
+#     print("=" * 70)

@@ -1,0 +1,21 @@
+{
+  "model_name": "RandomForestClassifier",
+  "score": 1.0,
+  "cv_scores": [
+    1.0,
+    0.9,
+    0.95
+  ],
+  "cv_std": 0.04082482904638629,
+  "training_time": 8.255186319351196,
+  "hyperparameters": {
+    "n_estimators": 370,
+    "criterion": "gini",
+    "min_samples_split": 4,
+    "min_samples_leaf": 1,
+    "max_features": "sqrt",
+    "bootstrap": true
+  },
+  "device": "cuda",
+  "memory_used_mb": 0.41997241973876953
+}

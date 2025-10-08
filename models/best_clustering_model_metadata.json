@@ -1,0 +1,18 @@
+{
+  "model_name": "KMeans",
+  "score": 0.8598282581279164,
+  "cv_scores": [
+    0.8598282581279164
+  ],
+  "cv_std": 0.0,
+  "training_time": 2.92702579498291,
+  "hyperparameters": {
+    "n_clusters": 3,
+    "max_iter": 900,
+    "tol": 0.00025378155082656634,
+    "n_init": 16,
+    "init": "random"
+  },
+  "device": "cuda",
+  "memory_used_mb": 0.0028438568115234375
+}

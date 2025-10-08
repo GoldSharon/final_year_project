@@ -1,0 +1,135 @@
+{
+  "config": {
+    "ml_type": "supervised",
+    "method": "classification",
+    "time_budget": 60,
+    "n_trials": 10,
+    "cv_folds": 3,
+    "device": "cuda",
+    "random_state": 42
+  },
+  "summary": {
+    "total_models_trained": 6,
+    "best_model": "RandomForestClassifier",
+    "best_score": 1.0,
+    "metric_name": "accuracy"
+  },
+  "results": [
+    {
+      "model_name": "RandomForestClassifier",
+      "score": 1.0,
+      "cv_scores": [
+        1.0,
+        0.9,
+        0.95
+      ],
+      "cv_std": 0.04082482904638629,
+      "training_time": 8.255186319351196,
+      "hyperparameters": {
+        "n_estimators": 370,
+        "criterion": "gini",
+        "min_samples_split": 4,
+        "min_samples_leaf": 1,
+        "max_features": "sqrt",
+        "bootstrap": true
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.41997241973876953
+    },
+    {
+      "model_name": "BaggingClassifier",
+      "score": 1.0,
+      "cv_scores": [
+        1.0,
+        0.925,
+        0.95
+      ],
+      "cv_std": 0.03118047822311617,
+      "training_time": 15.826622486114502,
+      "hyperparameters": {},
+      "device": "cuda",
+      "memory_used_mb": 0.011879920959472656
+    },
+    {
+      "model_name": "KNNClassifier",
+      "score": 1.0,
+      "cv_scores": [
+        0.975,
+        0.975,
+        1.0
+      ],
+      "cv_std": 0.011785113019775802,
+      "training_time": 1.926053524017334,
+      "hyperparameters": {
+        "n_neighbors": 22,
+        "weights": "distance",
+        "metric": "cosine"
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.0029544830322265625
+    },
+    {
+      "model_name": "LogisticRegression",
+      "score": 0.9666666666666667,
+      "cv_scores": [
+        0.975,
+        0.95,
+        0.925
+      ],
+      "cv_std": 0.020412414523193124,
+      "training_time": 15.676929235458374,
+      "hyperparameters": {
+        "epochs": 200,
+        "lr": 0.07114476009343425,
+        "batch_size": 16,
+        "optimizer": "sgd"
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.0048122406005859375
+    },
+    {
+      "model_name": "DecisionTreeClassifier",
+      "score": 0.9666666666666667,
+      "cv_scores": [
+        0.95,
+        0.925,
+        0.925
+      ],
+      "cv_std": 0.01178511301977575,
+      "training_time": 3.378268003463745,
+      "hyperparameters": {
+        "max_depth": 30,
+        "min_samples_split": 16,
+        "min_samples_leaf": 2,
+        "max_features": "sqrt",
+        "criterion": "entropy"
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.0013170242309570312
+    },
+    {
+      "model_name": "SVMClassifier",
+      "score": 0.7,
+      "cv_scores": [
+        0.925,
+        0.65,
+        0.675
+      ],
+      "cv_std": 0.1241638702145945,
+      "training_time": 25.317616939544678,
+      "hyperparameters": {
+        "kernel": "poly",
+        "C": 0.7476312062252299,
+        "epochs": 350,
+        "lr": 0.00019010245319870352,
+        "batch_size": 64,
+        "optimizer": "adam",
+        "gamma": "scale",
+        "degree": 4,
+        "coef0": 0.17052412368729153
+      },
+      "device": "cuda",
+      "memory_used_mb": 0.04361152648925781
+    }
+  ]
+}
